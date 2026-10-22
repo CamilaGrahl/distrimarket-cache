@@ -1,0 +1,7 @@
+# IntelliJ IDEA
+/.idea/workspace.xml
+/.idea/shelf/
+*.iws
+
+# Variables locales (contraseña de Redis)
+.env

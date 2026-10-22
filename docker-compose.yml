@@ -1,0 +1,41 @@
+# Servidor Redis único y compartido por todos los microservicios de Distrimarket
+# (auth, ventas, inventario, compras). Cada microservicio usa su propio prefijo de claves:
+#   distrimarket:auth:*  distrimarket:ventas:*  distrimarket:inventario:*  distrimarket:compras:*
+#
+# Uso:  docker compose up -d                 (solo Redis)
+#       docker compose --profile insight up -d   (Redis + Redis Insight en http://localhost:5540)
+services:
+  redis:
+    image: redis:7.2-alpine
+    container_name: distrimarket-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    environment:
+      # Si se define, Redis exige esta contraseña (recomendado si se comparte por la red).
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    command: >
+      sh -c 'if [ -n "$$REDIS_PASSWORD" ];
+             then exec redis-server /usr/local/etc/redis/redis.conf --requirepass "$$REDIS_PASSWORD";
+             else exec redis-server /usr/local/etc/redis/redis.conf; fi'
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ${REDIS_PASSWORD:+-a $$REDIS_PASSWORD} ping | grep PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Interfaz gráfica para ver claves, TTL y el Profiler (GET/SET en vivo). Opcional.
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: distrimarket-redisinsight
+    profiles: ["insight"]
+    ports:
+      - "${REDIS_INSIGHT_PORT:-5540}:5540"
+    depends_on:
+      - redis
+
+volumes:
+  redis-data:
